@@ -13,3 +13,5 @@ python split_data.py --dataset folder --dataroot /path/to/img_align_celeba --tes
 
 python main.py --dataset folder --dataroot /path/to/img_align_celeba --image_size 160 --crop_size 160 --dis_feature 64 128 256 384 512 --dis_block 1 1 1 1 1 --gen_feature 64 128 256 384 512 --gen_block 1 1 1 1 1 --save_path /some/path
 ```
+
+*The code is for Python 3*

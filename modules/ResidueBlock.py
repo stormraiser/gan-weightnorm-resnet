@@ -16,7 +16,7 @@ class ResidueBlock(nn.Module):
 
 		self.residue = nn.Sequential()
 		self.residue.add_module('conv_1', WeightNormalizedConv2d(in_channels, out_channels, stride + 2, stride, (1 + pad_h, 1 + pad_w)))
-		self.residue.add_module('tprelu_1', TPReLU(out_channels))
+		self.residue.add_module('tprelu', TPReLU(out_channels))
 		self.residue.add_module('conv_2', WeightNormalizedConv2d(out_channels, out_channels, 3, 1, 1))
 
 		self.shortcut = nn.Sequential()
@@ -41,7 +41,7 @@ class ResidueBlockTranspose(nn.Module):
 
 		self.residue = nn.Sequential()
 		self.residue.add_module('conv_1', WeightNormalizedConvTranspose2d(in_channels, in_channels, 3, 1, 1))
-		self.residue.add_module('prelu_1', TPReLU(in_channels))
+		self.residue.add_module('tprelu', TPReLU(in_channels))
 		self.residue.add_module('conv_2', WeightNormalizedConvTranspose2d(in_channels, out_channels, stride + 2, stride, (1 + pad_h, 1 + pad_w)))
 
 		self.shortcut = nn.Sequential()
