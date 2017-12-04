@@ -71,6 +71,8 @@ parser.add_argument('--niter',              type = int,   default = 1000000,
 	help = 'number of iterations to train')
 parser.add_argument('--gpu',                type = int,   default = 0,
 	help = 'ID of gpu to use')
+parser.add_argument('--random_crop',                      default = False,    action = 'store_true',
+	help = 'random crop')
 
 opt = parser.parse_args()
 print(opt)
@@ -80,15 +82,24 @@ load_location_map = lambda storage, location: storage.cuda(opt.gpu)
 transform_list = []
 
 if (opt.crop_height > 0) and (opt.crop_width > 0):
-	transform_list.append(transforms.CenterCrop((opt.crop_height, opt.crop_width)))
+	if opt.random_crop:
+		transform_list.append(transforms.RandomCrop((opt.crop_height, opt.crop_width)))
+	else:
+		transform_list.append(transforms.CenterCrop((opt.crop_height, opt.crop_width)))
 elif opt.crop_size > 0:
-	transform_list.append(transforms.CenterCrop(opt.crop_size))
+	if opt.random_crop:
+		transform_list.append(transforms.RandomCrop(opt.crop_size))
+	else:
+		transform_list.append(transforms.CenterCrop(opt.crop_size))
 
 if (opt.height > 0) and (opt.width > 0):
 	transform_list.append(transforms.Scale((opt.width, opt.height)))
 elif opt.image_size > 0:
 	transform_list.append(transforms.Scale(opt.image_size))
-	transform_list.append(transforms.CenterCrop(opt.image_size))
+	if opt.random_crop:
+		transform_list.append(transforms.RandomCrop(opt.image_size))
+	else:
+		transform_list.append(transforms.CenterCrop(opt.image_size))
 	opt.height = opt.image_size
 	opt.width = opt.image_size
 
