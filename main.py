@@ -6,6 +6,7 @@ import torch.optim as optim
 import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+import torch.autograd as autograd
 from torch.autograd import Variable
 import os
 import os.path
@@ -273,9 +274,24 @@ while current_iter < opt.niter:
 	print('Iteration {0}:'.format(current_iter))
 	current_loss_record = loss_record[(current_iter - 1) % opt.test_interval]
 
-	for param in dis.parameters():
-		param.requires_grad = True
+	gen.zero_grad()
+
+	rand_code = Variable(generate_noise(opt.batch_size).cuda(opt.gpu))
+	generated = gen(rand_code)
+	generated_detach = generated.detach()
+	generated_detach.requires_grad = True
+	dis_fake_output = dis(generated_detach)
+
+	gen_loss = loss_func(dis_fake_output, ones)
+	current_loss_record[2] = gen_loss.data[0]
+	generated.backward(autograd.grad([gen_loss], [generated_detach], retain_graph = True)[0])
+	gen_opt.step()
+
 	dis.zero_grad()
+
+	dis_fake_loss = loss_func(dis_fake_output, zeros)
+	current_loss_record[1] = dis_fake_loss.data[0]
+	dis_fake_loss.backward()
 
 	true_sample = torch.Tensor(opt.batch_size, 3, opt.height, opt.width)
 	for i in range(opt.batch_size):
@@ -285,31 +301,11 @@ while current_iter < opt.niter:
 			current_sample = 0
 			index_shuffle = torch.randperm(train_index.size(0))
 	true_sample = Variable(true_sample.cuda(opt.gpu))
-	loss = loss_func(dis(true_sample), ones)
-	current_loss_record[0] = loss.data[0]
-	loss.backward()
-
-	rand_code = Variable(generate_noise(opt.batch_size).cuda(opt.gpu))
-	generated = gen(rand_code)
-	loss = loss_func(dis(generated), zeros)
-	current_loss_record[1] = loss.data[0]
-	generated.detach()
-	loss.backward()
+	dis_real_loss = loss_func(dis(true_sample), ones)
+	current_loss_record[0] = dis_real_loss.data[0]
+	dis_real_loss.backward()
 
 	dis_opt.step()
-
-	for param in dis.parameters():
-		param.requires_grad = False
-	gen.zero_grad()
-
-	rand_code = Variable(generate_noise(opt.batch_size).cuda(opt.gpu))
-	generated = gen(rand_code)
-	loss = loss_func(dis(generated), ones)
-	current_loss_record[2] = loss.data[0]
-	loss.backward()
-	del generated
-
-	gen_opt.step()
 
 	print('loss: dis-real:{0:.4f} dis-fake:{1:.4f} gen:{2:.4f}'.format(current_loss_record[0], current_loss_record[1], current_loss_record[2]))
 
