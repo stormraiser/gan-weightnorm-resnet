@@ -13,40 +13,39 @@ class _WeightNormalizedConvNd(_ConvNd):
 		super(_WeightNormalizedConvNd, self).__init__(in_channels, out_channels, kernel_size, stride,
 			padding, dilation, transposed, output_padding, 1, False)
 		if scale:
-			self.scale = Parameter(torch.Tensor(1, self.out_channels, *((1,) * len(kernel_size))).fill_(init_scale))
+			self.scale = Parameter(torch.Tensor(self.out_channels).fill_(init_scale))
 		else:
 			self.register_parameter('scale', None)
 		if bias:
-			self.bias = Parameter(torch.zeros(1, self.out_channels, *((1,) * len(kernel_size))))
+			self.bias = Parameter(torch.zeros(self.out_channels))
 		else:
 			self.register_parameter('bias', None)
 		self.weight.data.mul_(init_factor)
 		self.weight_norm_factor = 1.0
 		if transposed:
-			for t in self.stride:
-				self.weight_norm_factor = self.weight_norm_factor / t
+			for t in stride:
+				self.weight_norm_factor /= t
 
-	def weight_norm(self):
+	def normalized_weight(self):
 		weight_norm = self.weight.pow(2)
+		for i in range(len(self.kernel_size)):
+			weight_norm = weight_norm.sum(i + 2, keepdim = True)
 		if self.transposed:
-			weight_norm = weight_norm.sum(0, keepdim = True)
+			weight_norm = weight_norm.sum(0, keepdim = True) * self.weight_norm_factor
 		else:
 			weight_norm = weight_norm.sum(1, keepdim = True)
-		for i in range(len(self.kernel_size)):
-			weight_norm = weight_norm.sum(2 + i, keepdim = True)
-		weight_norm = weight_norm.mul(self.weight_norm_factor).add(1e-6).sqrt()
-		return weight_norm
-
-	def norm_scale_bias(self, input):
-		if self.transposed:
-			output = input.div(self.weight_norm().expand_as(input))
-		else:
-			output = input.div(self.weight_norm().transpose(0, 1).expand_as(input))
+		weight_norm = weight_norm.sqrt().add(1e-8)
+		weight = self.weight.div(weight_norm)
 		if self.scale is not None:
-			output = output.mul(self.scale.expand_as(input))
-		if self.bias is not None:
-			output = output.add(self.bias.expand_as(input))
-		return output
+			scale_unsqueeze = self.scale
+			if self.transposed:
+				scale_unsqueeze = scale_unsqueeze.unsqueeze(0)
+			else:
+				scale_unsqueeze = scale_unsqueeze.unsqueeze(1)
+			for i in range(2, weight.dim()):
+				scale_unsqueeze = scale_unsqueeze.unsqueeze(i)
+			weight = weight.mul(scale_unsqueeze)
+		return weight
 			
 	def __repr__(self):
 		s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
@@ -77,8 +76,8 @@ class WeightNormalizedConv2d(_WeightNormalizedConvNd):
 			False, _pair(0), scale, bias, init_factor, init_scale)
 
 	def forward(self, input):
-		return self.norm_scale_bias(F.conv2d(input, self.weight, None, self.stride,
-						self.padding, self.dilation, 1))
+		return F.conv2d(input, self.normalized_weight(), self.bias, self.stride,
+						self.padding, self.dilation, 1)
 
 class WeightNormalizedConvTranspose2d(_ConvTransposeMixin, _WeightNormalizedConvNd):
 
@@ -95,5 +94,5 @@ class WeightNormalizedConvTranspose2d(_ConvTransposeMixin, _WeightNormalizedConv
 
 	def forward(self, input, output_size=None):
 		output_padding = self._output_padding(input, output_size)
-		return self.norm_scale_bias(F.conv_transpose2d(input, self.weight, None, self.stride, self.padding,
-			output_padding, 1, self.dilation))
+		return F.conv_transpose2d(input, self.normalized_weight(), self.bias, self.stride, self.padding,
+			output_padding, 1, self.dilation)

@@ -13,13 +13,12 @@ class WeightNormalizedAddition(nn.Module):
 		self.weight = Parameter(initial_weight.unsqueeze(1).expand(in_operands, in_channels).contiguous())
 
 	def forward(self, *inputs):
-		weight_norm = self.weight.pow(2).sum(0).add(1e-6).sqrt()
+		weight_norm = self.weight.pow(2).sum(0).sqrt().add(1e-8)
 		output = None
 		for i in range(len(inputs)):
 			current_weight = torch.div(self.weight[i], weight_norm).unsqueeze(0)
 			for j in range(2, inputs[i].dim()):
 				current_weight = current_weight.unsqueeze(j)
-			#print(current_weight.size(), inputs[i].size())
 			if output is None:
 				output = torch.mul(inputs[i], current_weight)
 			else:
