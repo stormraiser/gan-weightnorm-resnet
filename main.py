@@ -180,20 +180,17 @@ def generate_noise(m):
 	return torch.randn(m, opt.code_size)
 
 def visualize(code, filename):
-	gen.eval()
 	generated = torch.Tensor(code.size(0), 3, opt.height, opt.width)
 	for i in range((code.size(0) - 1) // opt.batch_size + 1):
 		batch_size = min(opt.batch_size, code.size(0) - i * opt.batch_size)
 		batch_code = Variable(code[i * opt.batch_size : i * opt.batch_size + batch_size])
 		generated[i * opt.batch_size : i * opt.batch_size + batch_size].copy_(gen(batch_code).data)
 	torchvision.utils.save_image(generated, filename, opt.sample_col)
-	gen.train()
 
 def test():
 	test_loss = 0
 	for param in gen.parameters():
 		param.requires_grad = False
-	gen.eval()
 	best_code = torch.Tensor(test_index.size(0), opt.code_size).cuda(opt.gpu)
 	total_batch = (test_index.size(0) - 1) // opt.batch_size + 1
 
@@ -219,9 +216,10 @@ def test():
 		loss = test_func(gen(batch_code), batch_target)
 		test_loss = test_loss + loss.data[0] * batch_size
 
+	visualize(best_code[0 : min(test_index.size(0), opt.sample_row * opt.sample_col)], os.path.join(opt.save_path, 'test', 'test_{0}.jpg'.format(current_iter)))
+
 	for param in gen.parameters():
 		param.requires_grad = True
-	gen.train()
 	test_loss = test_loss / test_index.size(0)
 	print('loss = {0}'.format(test_loss))
 	return test_loss
