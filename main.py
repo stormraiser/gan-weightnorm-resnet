@@ -140,8 +140,8 @@ dis = Discriminator(opt.width, opt.height, opt.dis_feature, opt.dis_block)
 print(dis)
 dis.cuda(opt.gpu)
 gen.cuda(opt.gpu)
-gen_opt = optim.RMSprop(gen.parameters(), lr = opt.lr, eps = 1e-6, alpha = 0.9)
-dis_opt = optim.RMSprop(dis.parameters(), lr = opt.lr, eps = 1e-6, alpha = 0.9)
+gen_opt = optim.RMSprop(gen.parameters(), lr = opt.lr, eps = 1e-8, alpha = 0.9)
+dis_opt = optim.RMSprop(dis.parameters(), lr = opt.lr, eps = 1e-8, alpha = 0.9)
 loss_func = nn.BCEWithLogitsLoss()
 test_func = nn.MSELoss()
 
@@ -278,7 +278,7 @@ while current_iter < opt.niter:
 	generated = gen(rand_code)
 	generated_detach = generated.detach()
 	generated_detach.requires_grad = True
-	dis_fake_output = dis(generated_detach)
+	dis_fake_output = dis(generated_detach.mul(2).sub(1))
 
 	gen_loss = loss_func(dis_fake_output, ones)
 	current_loss_record[2] = gen_loss.data[0]
@@ -299,7 +299,7 @@ while current_iter < opt.niter:
 			current_sample = 0
 			index_shuffle = torch.randperm(train_index.size(0))
 	true_sample = Variable(true_sample.cuda(opt.gpu))
-	dis_real_loss = loss_func(dis(true_sample), ones)
+	dis_real_loss = loss_func(dis(true_sample.mul(2).sub(1)), ones)
 	current_loss_record[0] = dis_real_loss.data[0]
 	dis_real_loss.backward()
 
